@@ -1,0 +1,1 @@
+add_executable(BFMachine main.cpp BFMachine.hpp BFMachine.cpp)
