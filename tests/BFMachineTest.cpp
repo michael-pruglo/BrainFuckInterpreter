@@ -1,18 +1,22 @@
+#include <optional>
 #include "gtest/gtest.h"
 #include "BFMachine.hpp"
 #include "BFMachine.cpp"
 
-TEST(BFMachine1c, Init)
-{
-    std::cout << "First test case";
-    EXPECT_EQ(1, 1);
-}
-
-void run_test_program(const std::string& code, const std::string& exp_output)
+void run_test_program(
+    const std::string& code,
+    const std::string& exp_output,
+    std::optional<BFMachine::Analytics> analytics = std::nullopt
+)
 {
     BFMachine bfm;
-    bfm.exec(code, true);
+    bfm.exec(code, false);
     ASSERT_EQ(bfm.get_output(), exp_output);
+    if (analytics)
+    {
+        std::cout<<"Here"<<std::flush;
+        ASSERT_EQ(bfm.get_analytics(), *analytics);
+    }
 }
 
 TEST(BrainFuckI, Empty)
@@ -34,6 +38,20 @@ TEST(BrainFuckI, SimplePlusMinus)
 TEST(BrainFuckI, MultiplePrints)
 {
     run_test_program(std::string(int('x'), '+')+".+.+.---.", "xyzw");
+}
+
+TEST(BrainFuckI, FirstIgnoreLoop)
+{
+    run_test_program(
+        std::string(int('a'), '+')+">[<...]<+.",
+        "b",
+        BFMachine::Analytics{
+            .max_stack_depth=1,
+            .first_ignore_loops_number=1,
+            .moves_left=0,
+            .moves_right=1
+        }
+    );
 }
 
 TEST(BrainFuckI, Lua)

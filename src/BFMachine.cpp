@@ -1,6 +1,9 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <chrono>
+#include <thread>
+#include <vector>
 #include "BFMachine.hpp"
 
 BFMachine::BFMachine()
@@ -39,9 +42,40 @@ void BFMachine::display_state() const
     const auto mem_pos = mem_ptr-mem.begin();
     std::cout << std::string(8+mem_pos*5+2,' ') << "^\n";
 
-    std::cout << "output:" << output << "\n\n\n";
+    std::cout << "output:" << output << "\n";
 
     std::cout << std::flush;
+}
+
+void BFMachine::display_analytics() const
+{
+    std::cout << "Analytics:\n";
+    std::cout << "  max stack depth: " << analytics.max_stack_depth << "\n";
+    std::cout << "  loops: \n";
+    if (analytics.loop_count.empty())
+        std::cout << "    none\n";
+    else
+    {
+        using vec_t = std::vector<std::pair<int, int>>;
+        vec_t loops_vec;
+        std::copy(analytics.loop_count.begin(),analytics.loop_count.end(),std::back_inserter<vec_t>(loops_vec));
+        std::sort(loops_vec.begin(), loops_vec.end(),[](const auto& l, const auto& r){
+                return l.second != r.second ? l.second < r.second : l.first < r.first;
+        });
+        for (const auto& [pos,cnt]: loops_vec)
+            std::cout << "    [at " << std::setw(4) << pos << ", x" << std::setw(2) << cnt << "]\n";
+    }
+    std::cout << "  memory used: < " << analytics.moves_left << "   > " << analytics.moves_right << "  total " << mem.size() << "\n";
+    assert(analytics.moves_left+analytics.moves_right == int(mem.size())-1);
+    auto curr_pos = mem_ptr - mem.begin() - analytics.moves_left;
+    std::cout << "  current position: " << curr_pos << "\n";
+
+    std::cout << std::flush;
+}
+
+BFMachine::Analytics BFMachine::get_analytics() const
+{
+    return analytics;
 }
 
 void BFMachine::exec(const std::string& code_, bool verbose)
@@ -51,7 +85,12 @@ void BFMachine::exec(const std::string& code_, bool verbose)
     {
         process_char();
         if (verbose)
+        {
             display_state();
+            display_analytics();
+            std::cout<<"\n\n\n\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(77));
+        }
     }
 }
 
@@ -61,14 +100,17 @@ void BFMachine::process_char()
     {
         case '-': if (!inactive) { --*mem_ptr; } break;
         case '+': if (!inactive) { ++*mem_ptr; } break;
-        case '<': if (!inactive) { if(mem_ptr==mem.begin())mem.push_front(0); --mem_ptr; } break;
-        case '>': if (!inactive) { if(mem_ptr==mem.end()-1)mem.push_back(0); ++mem_ptr; } break;
+        case '<': if (!inactive) { if(mem_ptr==mem.begin()){mem.push_front(0);++analytics.moves_left;} --mem_ptr; } break;
+        case '>': if (!inactive) { if(mem_ptr==mem.end()-1){mem.push_back(0);++analytics.moves_right;} ++mem_ptr; } break;
         case '.': if (!inactive) { output+=char(*mem_ptr); } break;
         case '[':
         {
             loop_labels.push(code_ptr);
+            analytics.max_stack_depth = std::max(analytics.max_stack_depth, loop_labels.size());
             if (!inactive && !*mem_ptr)
                 inactive = loop_labels.size();
+            if (!inactive)
+                analytics.loop_count[code_ptr-code.begin()] += !!*mem_ptr;
             break;
         }
         case ']':

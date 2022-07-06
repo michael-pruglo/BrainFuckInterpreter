@@ -2,6 +2,7 @@
 #include <string>
 #include <deque>
 #include <stack>
+#include <map>
 
 class IntCode
 {
@@ -19,8 +20,19 @@ public:
     std::string get_output() const;
     void        display_state() const;
 
+public:
+    struct Analytics
+    {
+        size_t max_stack_depth = 0;
+        std::map<int, int> loop_count;
+        int moves_left = 0, moves_right = 0;
+        bool operator==(const Analytics& other) const = default;
+    };
+    void        display_analytics() const;
+    Analytics   get_analytics() const;
+
 private:
-    void process_char();
+    void        process_char();
 
 private:
     using code_container = std::string;
@@ -34,4 +46,6 @@ private:
 
     std::string output;
     int inactive = 0;
+
+    Analytics analytics;
 };

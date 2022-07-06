@@ -1,4 +1,5 @@
 project(tests)
+set(CMAKE_CXX_STANDARD 23)
 
 # '.lib' is the folder with Google Test sources
 add_subdirectory(.lib)
