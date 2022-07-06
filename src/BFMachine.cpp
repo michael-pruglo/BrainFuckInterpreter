@@ -3,7 +3,7 @@
 #include <cassert>
 #include <chrono>
 #include <thread>
-#include <vector>
+#include <iterator>
 #include "BFMachine.hpp"
 
 BFMachine::BFMachine()
@@ -17,7 +17,7 @@ void BFMachine::reset()
 
     mem.clear();
     mem.push_back(0);
-    mem_ptr = mem.begin();
+    mem_idx = 0;
 
     output.clear();
 }
@@ -39,8 +39,7 @@ void BFMachine::display_state() const
     for (const auto& c: mem)
         std::cout << "| " << std::setw(2) << c << " ";
     std::cout << "|\n";
-    const auto mem_pos = mem_ptr-mem.begin();
-    std::cout << std::string(8+mem_pos*5+2,' ') << "^\n";
+    std::cout << std::string(8+mem_idx*5+2,' ') << "^\n";
 
     std::cout << "output:" << output << "\n";
 
@@ -65,10 +64,8 @@ void BFMachine::display_analytics() const
         for (const auto& [pos,cnt]: loops_vec)
             std::cout << "    [at " << std::setw(4) << pos << ", x" << std::setw(2) << cnt << "]\n";
     }
-    std::cout << "  memory used: < " << analytics.moves_left << "   > " << analytics.moves_right << "  total " << mem.size() << "\n";
-    assert(analytics.moves_left+analytics.moves_right == int(mem.size())-1);
-    auto curr_pos = mem_ptr - mem.begin() - analytics.moves_left;
-    std::cout << "  current position: " << curr_pos << "\n";
+    std::cout << "  memory used: < " << mem.size() << "\n";
+    std::cout << "  current position: " << mem_idx << "\n";
 
     std::cout << std::flush;
 }
@@ -78,7 +75,7 @@ BFMachine::Analytics BFMachine::get_analytics() const
     return analytics;
 }
 
-void BFMachine::exec(const std::string& code_, bool verbose)
+void BFMachine::exec(const std::string& code_, bool verbose, int delay_ms)
 {
     code = code_;
     for (code_ptr = code.begin(); code_ptr!=code.end(); )
@@ -89,7 +86,7 @@ void BFMachine::exec(const std::string& code_, bool verbose)
             display_state();
             display_analytics();
             std::cout<<"\n\n\n\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(77));
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
         }
     }
 }
@@ -98,19 +95,21 @@ void BFMachine::process_char()
 {
     switch(*code_ptr)
     {
-        case '-': if (!inactive) { --*mem_ptr; } break;
-        case '+': if (!inactive) { ++*mem_ptr; } break;
-        case '<': if (!inactive) { if(mem_ptr==mem.begin()){mem.push_front(0);++analytics.moves_left;} --mem_ptr; } break;
-        case '>': if (!inactive) { if(mem_ptr==mem.end()-1){mem.push_back(0);++analytics.moves_right;} ++mem_ptr; } break;
-        case '.': if (!inactive) { output+=char(*mem_ptr); } break;
+        case '-': if (!inactive) { --mem[mem_idx]; } break;
+        case '+': if (!inactive) { ++mem[mem_idx]; } break;
+        case '<': if (!inactive) { assert(mem_idx>0); --mem_idx; } break;
+        case '>': if (!inactive) { if(mem_idx==mem.size()-1) mem.push_back(0); ++mem_idx; } break;
+        case '.': if (!inactive) { output+=char(mem[mem_idx]); } break;
         case '[':
         {
             loop_labels.push(code_ptr);
             analytics.max_stack_depth = std::max(analytics.max_stack_depth, loop_labels.size());
-            if (!inactive && !*mem_ptr)
-                inactive = loop_labels.size();
             if (!inactive)
-                analytics.loop_count[code_ptr-code.begin()] += !!*mem_ptr;
+            {
+                analytics.loop_count[code_ptr-code.begin()] += !!mem[mem_idx];
+                if (!mem[mem_idx])
+                    inactive = loop_labels.size();
+            }
             break;
         }
         case ']':
@@ -130,4 +129,10 @@ void BFMachine::process_char()
         }
     }
     ++code_ptr;
+}
+
+bool BFMachine::Analytics::operator==(const BFMachine::Analytics& other) const
+{
+    return max_stack_depth == other.max_stack_depth
+        && loop_count == other.loop_count;
 }

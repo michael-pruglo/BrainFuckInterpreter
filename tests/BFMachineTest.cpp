@@ -13,10 +13,7 @@ void run_test_program(
     bfm.exec(code, false);
     ASSERT_EQ(bfm.get_output(), exp_output);
     if (analytics)
-    {
-        std::cout<<"Here"<<std::flush;
         ASSERT_EQ(bfm.get_analytics(), *analytics);
-    }
 }
 
 TEST(BrainFuckI, Empty)
@@ -42,14 +39,13 @@ TEST(BrainFuckI, MultiplePrints)
 
 TEST(BrainFuckI, FirstIgnoreLoop)
 {
+    int n = int('a');
     run_test_program(
-        std::string(int('a'), '+')+">[<...]<+.",
+        std::string(n, '+')+">[<...]<+.",
         "b",
         BFMachine::Analytics{
             .max_stack_depth=1,
-            .first_ignore_loops_number=1,
-            .moves_left=0,
-            .moves_right=1
+            .loop_count={{n+1,0}}
         }
     );
 }
@@ -58,7 +54,11 @@ TEST(BrainFuckI, Lua)
 {
     run_test_program(
         "+++++++++++++++++++++++++[>++>+++>++++>+++++<<<<-]+++++++++++++++++++++++++>>+.>>--------.<---.<<<---------------.",
-        "Lua\n"
+        "Lua\n",
+        BFMachine::Analytics{
+            .max_stack_depth=1,
+            .loop_count={{25,25}}
+        }
     );
 }
 
