@@ -123,10 +123,8 @@ void BFMachine::process_char()
             loop_labels.pop();
             return;
         default:
-        {
-            output += "\ninvalid symbol '"+std::string(1,*code_ptr)+
-                "' at position "+std::to_string(code_ptr-code.begin())+"\n";
-        }
+            //any other symbol ignored as a comment
+            break;
     }
     ++code_ptr;
 }
